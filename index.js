@@ -32,7 +32,7 @@ function pad(n, width, z) {
   return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
 }
 
-const GifEncoder = require('@skyra/gifenc');
+const GIFEncoder = require('gifencoder');
 const pngFileStream = require('png-file-stream');
 
 const dom = new jsdom.JSDOM(`<!DOCTYPE html><html><head></head><body></body></html>`, { predendToBeVisual: true, runScripts: 'outside-only' });
@@ -342,7 +342,7 @@ module.exports = {
             }
           });
         });
-        let encoder = new GifEncoder(mainSketch.width, mainSketch.height);
+        let encoder = new GIFEncoder(mainSketch.width, mainSketch.height);
         let str = '';
         for(let i = 0; i < mag; i++) {
           str += '?';
