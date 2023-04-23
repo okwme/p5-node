@@ -31,7 +31,10 @@ function pad(n, width, z) {
   n = n + '';
   return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
 }
-const { GifEncoder } = require('@skyra/gifenc');
+
+const { GIFEncoder, quantize, applyPalette } = require('gifenc');
+
+// const { GifEncoder } = require('@skyra/gifenc');
 const pngFileStream = require('png-file-stream');
 
 const dom = new jsdom.JSDOM(`<!DOCTYPE html><html><head></head><body></body></html>`, { predendToBeVisual: true, runScripts: 'outside-only' });
@@ -345,40 +348,60 @@ module.exports = {
         //   });
         // });
         console.log('here1')
-        let encoder = new GifEncoder(mainSketch.width, mainSketch.height);
-        console.log('here2')
-        let str = '';
-        for (let i = 0; i < mag; i++) {
-          str += '?';
+        const gif = GIFEncoder();
+        // let encoder = new GifEncoder(mainSketch.width, mainSketch.height);
+        // console.log('here2')
+        // let str = '';
+        // for (let i = 0; i < mag; i++) {
+        //   str += '?';
+        // }
+        let options = { repeat: ext.repeat || 0, delay: ext.delay || Math.floor(1000 / framerate), quality: ext.quality || 10 };
+
+        for (let i = 0; i < sFrames.length; i++) {
+          const data = sFrames[i].data
+          const palette = quantize(data, 256);
+          const index = applyPalette(data, palette);
+          // Write a single frame
+          gif.writeFrame(index, mainSketch.width, mainSketch.height, {
+            palette,
+            delay: options.delay,
+            transparent: true,
+            repeat: options.repeat,
+            // dispose: 2,
+          });
         }
-        // let options = { repeat: ext.repeat || 0, delay: ext.delay || Math.floor(1000 / framerate), quality: ext.quality || 10 };
-        if (ext.repeat) {
-          encoder.setRepeat(ext.repeat);
-        }
-        if (ext.delay) {
-          encoder.setDelay(ext.delay);
-        }
-        if (ext.quality) {
-          console.log({ quality: ext.quality })
-          encoder.setQuality(ext.quality);
-        }
+        gif.finish();
+        // Get the Uint8Array output of your binary GIF file
+        const output = gif.bytes();
+        fs.appendFileSync(`${dir}/${dir}.gif`, Buffer.from(output));
+
+        // if (ext.repeat) {
+        //   encoder.setRepeat(ext.repeat);
+        // }
+        // if (ext.delay) {
+        //   encoder.setDelay(ext.delay);
+        // }
+        // if (ext.quality) {
+        //   console.log({ quality: ext.quality })
+        //   encoder.setQuality(ext.quality);
+        // }
         // console.log('pngFileStream', `${dir}/frame-${str}.png`)
         // let stream = pngFileStream(`${dir}/frame-${str}.png`)
         //   .pipe(encoder.createWriteStream(options))
         //   .pipe(fs.createWriteStream(`${dir}/${dir}.gif`));
-        console.log('here3')
-        encoder.createReadStream()
-          .pipe(fs.createWriteStream(`${dir}/${dir}.gif`))
-        console.log('here4')
-        encoder.start()
-        console.log('afterStart')
-        for (const frame of sFrames) {
-          console.log('each frame')
-          // encoder.addFrame(frame.replace(/^data:image\/png;base64,/, ""))
-          encoder.addFrame(frame.data)
-        }
-        console.log('afterloop')
-        encoder.finish()
+        // console.log('here3')
+        // encoder.createReadStream()
+        //   .pipe(fs.createWriteStream(`${dir}/${dir}.gif`))
+        // console.log('here4')
+        // encoder.start()
+        // console.log('afterStart')
+        // for (const frame of sFrames) {
+        //   console.log('each frame')
+        //   // encoder.addFrame(frame.replace(/^data:image\/png;base64,/, ""))
+        //   encoder.addFrame(frame.data)
+        // }
+        // console.log('afterloop')
+        // encoder.finish()
 
         // stream.on('finish', () => {
         if (cb) cb();
