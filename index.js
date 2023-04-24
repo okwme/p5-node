@@ -33,6 +33,7 @@ function pad(n, width, z) {
 }
 
 const { GIFEncoder, quantize, applyPalette } = require('gifenc');
+var DitherJS = require('ditherjs/server');
 
 // const { GifEncoder } = require('@skyra/gifenc');
 const pngFileStream = require('png-file-stream');
@@ -316,13 +317,34 @@ module.exports = {
       mainSketch.redraw();
       let nrOfFrames = framerate * dur;
       let sFrames = [];
+      let allData = []
       for (let i = 0; i < nrOfFrames; i++) {
-        console.log({ cnv })
         // sFrames.push(pp.prototype.getCanvasDataURL(cnv));
-        sFrames.push(cnv.getImageData(0, 0, mainSketch.width, mainSketch.height))
+        const imageData = cnv.getImageData(0, 0, mainSketch.width, mainSketch.height)
+        let tmpData = new Uint8ClampedArray(allData.length + imageData.data.length)
+        tmpData.set(allData)
+        tmpData.set(imageData.data, allData.length)
+        allData = tmpData
+        sFrames.push(imageData)
         mainSketch.redraw();
       }
       mainSketch.loop();
+
+      // const pixPalette = palette(allData, 256)
+      // var options = {
+      //   "step": 1, // The step for the pixel quantization n = 1,2,3...
+      //   "palette": pixPalette, //defaultPalette, // an array of colors as rgb arrays
+      //   "algorithm": "atkinson" // one of ["ordered", "diffusion", "atkinson"]
+      // };
+      // var ditherjs = new DitherJS(options)
+      // let allData = []
+      // for (let i = 0; i < nrOfFrames; i++) {
+      //   const imageData = cnv.getImageData(0, 0, mainSketch.width, mainSketch.height);
+      //   let tmpData = new Uint8ClampedArray(allData.length + imageData.data.length)
+      //   tmpData.set(allData)
+      //   tmpData.set(imageData.data, allData.length)
+      //   allData = tmpData
+      //   sFrames.push(imageData.data)
 
       //cleanup folder
       if (!(fs.existsSync(dir) && fs.lstatSync(dir).isDirectory())) {
@@ -347,7 +369,6 @@ module.exports = {
         //     }
         //   });
         // });
-        console.log('here1')
         const gif = GIFEncoder();
         // let encoder = new GifEncoder(mainSketch.width, mainSketch.height);
         // console.log('here2')
@@ -356,13 +377,30 @@ module.exports = {
         //   str += '?';
         // }
         let options = { repeat: ext.repeat || 0, delay: ext.delay || Math.floor(1000 / framerate), quality: ext.quality || 10 };
-
+        // console.log(`allData length = ${allData.length}`)
+        // console.log(`palette length = ${palette.length}`)
+        const palette = quantize(allData, 256);
+        const ditherOptions = {
+          "step": 2, // The step for the pixel quantization n = 1,2,3...
+          // "palette": palette, // an array of colors as rgb arrays
+          "algorithm": "atkinson" // one of ["ordered", "diffusion", "atkinson"]
+        }
+        // var ditherjs = new DitherJS(ditherOptions)
         for (let i = 0; i < sFrames.length; i++) {
-          const data = sFrames[i].data
-          const palette = quantize(data, 256);
-          const index = applyPalette(data, palette);
+          let imageData = sFrames[i]
+          let data = imageData.data
+
+          // console.log({ data })
+          let index = applyPalette(data, palette);
+          // const ditherPalette = quantize(index, 256);
+          imageData.data = index
+          // console.log('beforedither')
+          // ditherOptions.palette = palette
+          // ditherjs.ditherImageData(imageData, ditherOptions)
+          // console.log({ index })
+          // console.log({ imageData })
           // Write a single frame
-          gif.writeFrame(index, mainSketch.width, mainSketch.height, {
+          gif.writeFrame(imageData.data, mainSketch.width, mainSketch.height, {
             palette,
             delay: options.delay,
             transparent: true,
@@ -15811,7 +15849,6 @@ module.exports = {
           var s = e("./main"),
             h = e("./constants");
           (s.Graphics = function (e, t, r, i) {
-            console.log('graphics?????')
             var n = r || h.P2D;
             this.canvas = document.createElement("canvas");
             var o = i._userNode || document.body;
