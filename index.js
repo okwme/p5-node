@@ -4,7 +4,7 @@ const path = require('path');
 const Jimp = require('jimp');
 const isURL = require('is-url');
 const axios = require('axios');
-
+const isLinkedLocally = false
 /*
 TODO
   loadJSON() -- done
@@ -42,7 +42,7 @@ const dom = new jsdom.JSDOM(`<!DOCTYPE html><html><head></head><body></body></ht
 const { window } = dom;
 const { document } = window;
 
-let Canvas = require('../jsdom/lib/jsdom/utils').Canvas;
+let Canvas = isLinkedLocally ? require('./node_modules/jsdom/lib/jsdom/utils').Canvas : require('../jsdom/lib/jsdom/utils').Canvas;
 
 let mainSketch;
 let mainCanvas;
@@ -359,7 +359,7 @@ module.exports = {
 
       if (typeof ext === "object") {
         //save as gif
-        let mag = sFrames.length.toString().length;
+        // let mag = sFrames.length.toString().length;
         // sFrames.forEach((frame, i) => {
         //   fs.writeFileSync(`${dir}/frame-${pad(i, mag)}.png`, frame.replace(/^data:image\/png;base64,/, ""), 'base64', err => {
         //     if (err) {
@@ -379,11 +379,11 @@ module.exports = {
         // console.log(`allData length = ${allData.length}`)
         // console.log(`palette length = ${palette.length}`)
         const palette = quantize(allData, 256);
-        const ditherOptions = {
-          "step": 2, // The step for the pixel quantization n = 1,2,3...
-          // "palette": palette, // an array of colors as rgb arrays
-          "algorithm": "atkinson" // one of ["ordered", "diffusion", "atkinson"]
-        }
+        // const ditherOptions = {
+        //   "step": 2, // The step for the pixel quantization n = 1,2,3...
+        //   // "palette": palette, // an array of colors as rgb arrays
+        //   "algorithm": "atkinson" // one of ["ordered", "diffusion", "atkinson"]
+        // }
         // var ditherjs = new DitherJS(ditherOptions)
         for (let i = 0; i < sFrames.length; i++) {
           let imageData = sFrames[i]
@@ -402,7 +402,7 @@ module.exports = {
           gif.writeFrame(imageData.data, mainSketch.width, mainSketch.height, {
             palette,
             delay: options.delay,
-            transparent: true,
+            transparent: false,
             repeat: options.repeat,
             // dispose: 2,
           });
