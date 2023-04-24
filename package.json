@@ -6,7 +6,8 @@
   "dependencies": {
     "axios": "^0.21.1",
     "canvas": "^2.5.0",
-    "gifencoder": "^2.0.1",
+    "ditherjs": "^0.10.0",
+    "gifenc": "^1.0.3",
     "is-url": "^1.2.4",
     "jimp": "^0.16.1",
     "jsdom": "^15.1.1",
