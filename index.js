@@ -1,10 +1,10 @@
-const jsdom = require("jsdom");
-const fs = require('fs');
-const path = require('path');
-const Jimp = require('jimp');
-const isURL = require('is-url');
-const axios = require('axios');
 const isLinkedLocally = false
+const jsdom = require(isLinkedLocally ? "./node_modules/jsdom" : "jsdom");
+const fs = require("fs")//require(isLinkedLocally ? "./node_modules/fs" : "fs");
+const path = require("path")//require(isLinkedLocally ? "./node_modules/path" : "path");
+const Jimp = require(isLinkedLocally ? "./node_modules/jimp" : "jimp");
+const isURL = require(isLinkedLocally ? "./node_modules/is-url" : "is-url");
+const axios = require(isLinkedLocally ? "./node_modules/axios" : "axios");
 /*
 TODO
   loadJSON() -- done
@@ -32,11 +32,12 @@ function pad(n, width, z) {
   return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
 }
 
-const { GIFEncoder, quantize, applyPalette } = require('gifenc');
-var DitherJS = require('ditherjs/server');
+const RgbQuant = require(isLinkedLocally ? "./node_modules/rgbquant" : 'rgbquant');
+const { GIFEncoder, quantize, applyPalette } = require(isLinkedLocally ? "./node_modules/gifenc" : "gifenc");
+// var DitherJS = require(isLinkedLocally ? "./node_modules/ditherjs/server" : "ditherjs/server");
 
 // const { GifEncoder } = require('@skyra/gifenc');
-const pngFileStream = require('png-file-stream');
+// const pngFileStream = require(isLinkedLocally ? "./node_modules/png-file-stream" : "png-file-stream");
 
 const dom = new jsdom.JSDOM(`<!DOCTYPE html><html><head></head><body></body></html>`, { predendToBeVisual: true, runScripts: 'outside-only' });
 const { window } = dom;
@@ -310,15 +311,17 @@ module.exports = {
 
 
   pp.prototype.saveFrames = (cnv, dir, ext, dur, framerate, cb) => {
+    dir = "gifs/" + dir
     return new Promise((resolve, reject) => {
       //get the frames as base64
       mainSketch.noLoop();
       mainSketch.redraw();
       let nrOfFrames = framerate * dur;
       let sFrames = [];
-      let allData = []
+      let allData = [];
+      let base64Frames = []
       for (let i = 0; i < nrOfFrames; i++) {
-        // sFrames.push(pp.prototype.getCanvasDataURL(cnv));
+        base64Frames.push(pp.prototype.getCanvasDataURL(cnv));
         const imageData = cnv.getImageData(0, 0, mainSketch.width, mainSketch.height)
         let tmpData = new Uint8ClampedArray(allData.length + imageData.data.length)
         tmpData.set(allData)
@@ -359,15 +362,15 @@ module.exports = {
 
       if (typeof ext === "object") {
         //save as gif
-        // let mag = sFrames.length.toString().length;
-        // sFrames.forEach((frame, i) => {
-        //   fs.writeFileSync(`${dir}/frame-${pad(i, mag)}.png`, frame.replace(/^data:image\/png;base64,/, ""), 'base64', err => {
-        //     if (err) {
-        //       if (cb) cb(err);
-        //       else reject(err);
-        //     }
-        //   });
-        // });
+        let mag = base64Frames.length.toString().length;
+        base64Frames.forEach((frame, i) => {
+          fs.writeFileSync(`${dir}/frame-${pad(i, mag)}.png`, frame.replace(/^data:image\/png;base64,/, ""), 'base64', err => {
+            if (err) {
+              if (cb) cb(err);
+              else reject(err);
+            }
+          });
+        });
         const gif = GIFEncoder();
         // let encoder = new GifEncoder(mainSketch.width, mainSketch.height);
         // console.log('here2')
@@ -378,7 +381,19 @@ module.exports = {
         let options = { repeat: ext.repeat || 0, delay: ext.delay || Math.floor(1000 / framerate), quality: ext.quality || 10 };
         // console.log(`allData length = ${allData.length}`)
         // console.log(`palette length = ${palette.length}`)
-        const palette = quantize(allData, 256);
+
+        var opts = {
+          colors: 256
+        };
+
+        let q = new RgbQuant(opts);
+        q.sample(allData);
+        const palette = q.palette(true);
+
+        opts.palette = palette;
+
+
+        // const palette = quantize(allData, 256);
         // const ditherOptions = {
         //   "step": 2, // The step for the pixel quantization n = 1,2,3...
         //   // "palette": palette, // an array of colors as rgb arrays
@@ -389,15 +404,9 @@ module.exports = {
           let imageData = sFrames[i]
           let data = imageData.data
 
-          // console.log({ data })
-          let index = applyPalette(data, palette);
-          // const ditherPalette = quantize(index, 256);
+          q = new RgbQuant(opts);
+          let index = q.reduce(data, 2, 'Burkes', true);
           imageData.data = index
-          // console.log('beforedither')
-          // ditherOptions.palette = palette
-          // ditherjs.ditherImageData(imageData, ditherOptions)
-          // console.log({ index })
-          // console.log({ imageData })
           // Write a single frame
           gif.writeFrame(imageData.data, mainSketch.width, mainSketch.height, {
             palette,
@@ -410,7 +419,7 @@ module.exports = {
         gif.finish();
         // Get the Uint8Array output of your binary GIF file
         const output = gif.bytes();
-        fs.appendFileSync(`${dir}/${dir}.gif`, Buffer.from(output));
+        fs.appendFileSync(`${dir}/complete.gif`, Buffer.from(output));
 
         // if (ext.repeat) {
         //   encoder.setRepeat(ext.repeat);

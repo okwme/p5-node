@@ -5,13 +5,12 @@
   "main": "index.js",
   "dependencies": {
     "axios": "^0.21.1",
-    "canvas": "^2.5.0",
-    "ditherjs": "^0.10.0",
+    "canvas": "2.11.2",
     "gifenc": "^1.0.3",
     "is-url": "^1.2.4",
     "jimp": "^0.16.1",
     "jsdom": "^15.1.1",
-    "png-file-stream": "^1.2.1"
+    "rgbquant": "^1.1.2"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
