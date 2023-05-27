@@ -404,11 +404,11 @@ module.exports = {
         //   "algorithm": "atkinson" // one of ["ordered", "diffusion", "atkinson"]
         // }
         // var ditherjs = new DitherJS(ditherOptions)
-        console.log('create the gif finally')
+        console.log(`create gif with ${sFrames.length} frames`)
         for (let i = 0; i < sFrames.length; i++) {
           let imageData = sFrames[i]
           let data = imageData.data
-          console.log(`write frame ${i} / ${sFrames.length}`)
+          // console.log(`write frame ${i} / ${sFrames.length}`)
           q = new RgbQuant(opts);
           let index = q.reduce(data, 2, 'Burkes', true);
           imageData.data = index
