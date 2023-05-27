@@ -311,7 +311,8 @@ module.exports = {
 
 
   pp.prototype.saveFrames = (cnv, dir, ext, dur, framerate, cb) => {
-    dir = "gifs/" + dir
+    dir = "public/gifs/" + dir
+    console.log('saveFrames', { dir })
     return new Promise((resolve, reject) => {
       //get the frames as base64
       mainSketch.noLoop();
@@ -349,22 +350,26 @@ module.exports = {
       //   sFrames.push(imageData.data)
 
       //cleanup folder
+
       if (!(fs.existsSync(dir) && fs.lstatSync(dir).isDirectory())) {
+        console.log('create directory', { dir })
         fs.mkdirSync(dir);
+        fs.mkdirSync(dir + "/frames");
       } else {
-        let files = fs.readdirSync(dir);
-        for (const file of files) {
-          fs.unlinkSync(path.join(dir, file), err => {
-            if (err) throw err;
-          });
-        }
+        // let files = fs.readdirSync(dir);
+        // for (const file of files) {
+        //   fs.unlinkSync(path.join(dir, file), err => {
+        //     if (err) throw err;
+        //   });
+        // }
       }
 
       if (typeof ext === "object") {
         //save as gif
         let mag = base64Frames.length.toString().length;
+        console.log('save each frame')
         base64Frames.forEach((frame, i) => {
-          fs.writeFileSync(`${dir}/frame-${pad(i, mag)}.png`, frame.replace(/^data:image\/png;base64,/, ""), 'base64', err => {
+          fs.writeFileSync(`${dir}/frames/frame-${pad(i, mag)}.png`, frame.replace(/^data:image\/png;base64,/, ""), 'base64', err => {
             if (err) {
               if (cb) cb(err);
               else reject(err);
@@ -392,7 +397,6 @@ module.exports = {
 
         opts.palette = palette;
 
-
         // const palette = quantize(allData, 256);
         // const ditherOptions = {
         //   "step": 2, // The step for the pixel quantization n = 1,2,3...
@@ -400,10 +404,11 @@ module.exports = {
         //   "algorithm": "atkinson" // one of ["ordered", "diffusion", "atkinson"]
         // }
         // var ditherjs = new DitherJS(ditherOptions)
+        console.log('create the gif finally')
         for (let i = 0; i < sFrames.length; i++) {
           let imageData = sFrames[i]
           let data = imageData.data
-
+          console.log(`write frame ${i} / ${sFrames.length}`)
           q = new RgbQuant(opts);
           let index = q.reduce(data, 2, 'Burkes', true);
           imageData.data = index
@@ -419,7 +424,9 @@ module.exports = {
         gif.finish();
         // Get the Uint8Array output of your binary GIF file
         const output = gif.bytes();
+        console.log('add completed gif')
         fs.appendFileSync(`${dir}/complete.gif`, Buffer.from(output));
+        // fs.appendFileSync(`${dir.replace('public', 'dist')}/complete.gif`, Buffer.from(output));
 
         // if (ext.repeat) {
         //   encoder.setRepeat(ext.repeat);
