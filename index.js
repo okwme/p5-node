@@ -310,109 +310,79 @@ module.exports = {
   // pp.prototype.registerMethod('post', pp.prototype.doStuffAtEndOfDraw);
 
 
-  pp.prototype.saveFrames = (cnv, dir, ext, dur, framerate, cb) => {
-    dir = "public/gifs/" + dir
-    console.log('saveFrames', { dir })
+  pp.prototype.saveFrames = (cnv, dir, ext, dur, framerate, dir_base = "public/gifs/") => {
+    dir = dir_base + dir
+    const printLogs = process.env.NODE_ENV === 'development'
+    printLogs && console.log('saveFrames', { dir })
     return new Promise((resolve, reject) => {
-      //get the frames as base64
       mainSketch.noLoop();
-      mainSketch.redraw();
       let nrOfFrames = framerate * dur;
       let sFrames = [];
       let allData = [];
       let base64Frames = []
       for (let i = 0; i < nrOfFrames; i++) {
-        base64Frames.push(pp.prototype.getCanvasDataURL(cnv));
+        printLogs && console.time('loop-frame-' + i)
+        // load next frame
+        mainSketch.redraw();
+
+        // only save individual frames on development server
+        printLogs && base64Frames.push(pp.prototype.getCanvasDataURL(cnv));
+
+        // compile Uint8ClampedArray of all frames for use in global palette
         const imageData = cnv.getImageData(0, 0, mainSketch.width, mainSketch.height)
         let tmpData = new Uint8ClampedArray(allData.length + imageData.data.length)
         tmpData.set(allData)
         tmpData.set(imageData.data, allData.length)
         allData = tmpData
+
+        // add imageData to frame for use in gif encoder
         sFrames.push(imageData)
-        mainSketch.redraw();
+        printLogs && console.timeEnd('loop-frame-' + i)
       }
-      mainSketch.loop();
-
-      // const pixPalette = palette(allData, 256)
-      // var options = {
-      //   "step": 1, // The step for the pixel quantization n = 1,2,3...
-      //   "palette": pixPalette, //defaultPalette, // an array of colors as rgb arrays
-      //   "algorithm": "atkinson" // one of ["ordered", "diffusion", "atkinson"]
-      // };
-      // var ditherjs = new DitherJS(options)
-      // let allData = []
-      // for (let i = 0; i < nrOfFrames; i++) {
-      //   const imageData = cnv.getImageData(0, 0, mainSketch.width, mainSketch.height);
-      //   let tmpData = new Uint8ClampedArray(allData.length + imageData.data.length)
-      //   tmpData.set(allData)
-      //   tmpData.set(imageData.data, allData.length)
-      //   allData = tmpData
-      //   sFrames.push(imageData.data)
-
-      //cleanup folder
+      // mainSketch.loop();
 
       if (!(fs.existsSync(dir) && fs.lstatSync(dir).isDirectory())) {
-        console.log('create directory', { dir })
+        printLogs && console.log('create directory', { dir })
         fs.mkdirSync(dir);
         fs.mkdirSync(dir + "/frames");
-      } else {
-        // let files = fs.readdirSync(dir);
-        // for (const file of files) {
-        //   fs.unlinkSync(path.join(dir, file), err => {
-        //     if (err) throw err;
-        //   });
-        // }
       }
 
       if (typeof ext === "object") {
         //save as gif
         let mag = base64Frames.length.toString().length;
-        console.log('save each frame')
+        printLogs && console.log('save each frame')
         base64Frames.forEach((frame, i) => {
           fs.writeFileSync(`${dir}/frames/frame-${pad(i, mag)}.png`, frame.replace(/^data:image\/png;base64,/, ""), 'base64', err => {
             if (err) {
-              if (cb) cb(err);
-              else reject(err);
+              reject(err);
             }
           });
         });
         const gif = GIFEncoder();
-        // let encoder = new GifEncoder(mainSketch.width, mainSketch.height);
-        // console.log('here2')
-        // let str = '';
-        // for (let i = 0; i < mag; i++) {
-        //   str += '?';
-        // }
         let options = { repeat: ext.repeat || 0, delay: ext.delay || Math.floor(1000 / framerate), quality: ext.quality || 10 };
-        // console.log(`allData length = ${allData.length}`)
-        // console.log(`palette length = ${palette.length}`)
 
         var opts = {
           colors: 256
         };
 
-        let q = new RgbQuant(opts);
+        // get palette that covers all frames of the entire gif to ensure background doesn't flicker
+        const q = new RgbQuant(opts);
         q.sample(allData);
         const palette = q.palette(true);
 
-        opts.palette = palette;
 
-        // const palette = quantize(allData, 256);
-        // const ditherOptions = {
-        //   "step": 2, // The step for the pixel quantization n = 1,2,3...
-        //   // "palette": palette, // an array of colors as rgb arrays
-        //   "algorithm": "atkinson" // one of ["ordered", "diffusion", "atkinson"]
-        // }
-        // var ditherjs = new DitherJS(ditherOptions)
-        console.log(`create gif with ${sFrames.length} frames`)
+        opts.palette = palette
+        printLogs && console.log(`create gif with ${sFrames.length} frames`)
         for (let i = 0; i < sFrames.length; i++) {
           let imageData = sFrames[i]
           let data = imageData.data
-          // console.log(`write frame ${i} / ${sFrames.length}`)
-          q = new RgbQuant(opts);
-          let index = q.reduce(data, 2, 'Burkes', true);
+          printLogs && console.time('reduce-frame-' + i)
+          const q = new RgbQuant(opts);
+          const index = q.reduce(data, 2, 'Burkes', true);
+          printLogs && console.timeEnd('reduce-frame-' + i)
           imageData.data = index
           // Write a single frame
+          printLogs && console.time('write-frame-' + i)
           gif.writeFrame(imageData.data, mainSketch.width, mainSketch.height, {
             palette,
             delay: options.delay,
@@ -420,46 +390,14 @@ module.exports = {
             repeat: options.repeat,
             // dispose: 2,
           });
+          printLogs && console.timeEnd('write-frame-' + i)
         }
         gif.finish();
         // Get the Uint8Array output of your binary GIF file
         const output = gif.bytes();
-        console.log('add completed gif')
-        fs.appendFileSync(`${dir}/complete.gif`, Buffer.from(output));
-        // fs.appendFileSync(`${dir.replace('public', 'dist')}/complete.gif`, Buffer.from(output));
-
-        // if (ext.repeat) {
-        //   encoder.setRepeat(ext.repeat);
-        // }
-        // if (ext.delay) {
-        //   encoder.setDelay(ext.delay);
-        // }
-        // if (ext.quality) {
-        //   console.log({ quality: ext.quality })
-        //   encoder.setQuality(ext.quality);
-        // }
-        // console.log('pngFileStream', `${dir}/frame-${str}.png`)
-        // let stream = pngFileStream(`${dir}/frame-${str}.png`)
-        //   .pipe(encoder.createWriteStream(options))
-        //   .pipe(fs.createWriteStream(`${dir}/${dir}.gif`));
-        // console.log('here3')
-        // encoder.createReadStream()
-        //   .pipe(fs.createWriteStream(`${dir}/${dir}.gif`))
-        // console.log('here4')
-        // encoder.start()
-        // console.log('afterStart')
-        // for (const frame of sFrames) {
-        //   console.log('each frame')
-        //   // encoder.addFrame(frame.replace(/^data:image\/png;base64,/, ""))
-        //   encoder.addFrame(frame.data)
-        // }
-        // console.log('afterloop')
-        // encoder.finish()
-
-        // stream.on('finish', () => {
-        if (cb) cb();
-        else resolve();
-        // });
+        printLogs && console.log('add completed gif')
+        fs.writeFileSync(`${dir}/complete.gif`, Buffer.from(output));
+        resolve();
       } else {
         //save as images
         sFrames.forEach((frame, i) => {
