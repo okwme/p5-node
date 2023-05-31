@@ -1,4 +1,4 @@
-const isLinkedLocally = false
+const isLinkedLocally = true
 const jsdom = require(isLinkedLocally ? "./node_modules/jsdom" : "jsdom");
 const fs = require("fs")//require(isLinkedLocally ? "./node_modules/fs" : "fs");
 const path = require("path")//require(isLinkedLocally ? "./node_modules/path" : "path");
@@ -326,14 +326,14 @@ module.exports = {
         mainSketch.redraw();
 
         // only save individual frames on development server
-        printLogs && base64Frames.push(pp.prototype.getCanvasDataURL(cnv));
+        // printLogs && base64Frames.push(pp.prototype.getCanvasDataURL(cnv));
 
-        // compile Uint8ClampedArray of all frames for use in global palette
-        const imageData = cnv.getImageData(0, 0, mainSketch.width, mainSketch.height)
-        let tmpData = new Uint8ClampedArray(allData.length + imageData.data.length)
-        tmpData.set(allData)
-        tmpData.set(imageData.data, allData.length)
-        allData = tmpData
+        // // compile Uint8ClampedArray of all frames for use in global palette
+        // const imageData = cnv.getImageData(0, 0, mainSketch.width, mainSketch.height)
+        // let tmpData = new Uint8ClampedArray(allData.length + imageData.data.length)
+        // tmpData.set(allData)
+        // tmpData.set(imageData.data, allData.length)
+        // allData = tmpData
 
         // add imageData to frame for use in gif encoder
         sFrames.push(imageData)
@@ -375,12 +375,12 @@ module.exports = {
         printLogs && console.log(`create gif with ${sFrames.length} frames`)
         for (let i = 0; i < sFrames.length; i++) {
           let imageData = sFrames[i]
-          let data = imageData.data
-          printLogs && console.time('reduce-frame-' + i)
-          const q = new RgbQuant(opts);
-          const index = q.reduce(data, 2, 'Burkes', true);
-          printLogs && console.timeEnd('reduce-frame-' + i)
-          imageData.data = index
+          // let data = imageData.data
+          // printLogs && console.time('reduce-frame-' + i)
+          // const q = new RgbQuant(opts);
+          // const index = q.reduce(data, 2, 'Burkes', true);
+          // printLogs && console.timeEnd('reduce-frame-' + i)
+          // imageData.data = index
           // Write a single frame
           printLogs && console.time('write-frame-' + i)
           gif.writeFrame(imageData.data, mainSketch.width, mainSketch.height, {
