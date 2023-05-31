@@ -320,25 +320,54 @@ module.exports = {
       let sFrames = [];
       let allData = [];
       let base64Frames = []
+      const targetNumberOfFramesToSample = 25
+      const interval = Math.floor(nrOfFrames / targetNumberOfFramesToSample)
       for (let i = 0; i < nrOfFrames; i++) {
-        printLogs && console.time('loop-frame-' + i)
+        
         // load next frame
         mainSketch.redraw();
 
+        printLogs && console.time('convert frame to base-64-' + i)
         // only save individual frames on development server
-        // printLogs && base64Frames.push(pp.prototype.getCanvasDataURL(cnv));
+        printLogs && base64Frames.push(pp.prototype.getCanvasDataURL(cnv));
+        printLogs && console.timeEnd('convert frame to base-64-' + i)
 
+
+        printLogs && console.time('get imageData' + i)
         // // compile Uint8ClampedArray of all frames for use in global palette
-        // const imageData = cnv.getImageData(0, 0, mainSketch.width, mainSketch.height)
-        // let tmpData = new Uint8ClampedArray(allData.length + imageData.data.length)
-        // tmpData.set(allData)
-        // tmpData.set(imageData.data, allData.length)
-        // allData = tmpData
+        const imageData = cnv.getImageData(0, 0, mainSketch.width, mainSketch.height)
+        printLogs && console.timeEnd('get imageData' + i)
 
+        // if (i == Math.floor(nrOfFrames/2)) {
+        if (i % interval == 0) {
+          printLogs && console.time('add image data to allData array-' + i)
+          // let tmpData = new Uint8ClampedArray(allData.length + imageData.data.length)
+          // tmpData.set(allData)
+          // tmpData.set(imageData.data, allData.length)
+          // allData = tmpData
+          // allData.push(imageData.data)
+          allData.push(imageData.data)
+          printLogs && console.timeEnd('add image data to allData array-' + i)
+        }
+        printLogs && console.time('get imageData and add to sFrames array-' + i)
         // add imageData to frame for use in gif encoder
         sFrames.push(imageData)
-        printLogs && console.timeEnd('loop-frame-' + i)
+        printLogs && console.timeEnd('get imageData and add to sFrames array-' + i)
       }
+
+
+      printLogs && console.time('put allData into allDataFinal Uint8ClampedArray')
+      // combine the pixel data from all frames into a single Uint8ClampedArray
+      const allDataFinal = new Uint8ClampedArray(allData.reduce((acc, cur) => acc + cur.length, 0));
+      let offset = 0;
+      for (let i = 0; i < allData.length; i++) {
+        allDataFinal.set(allData[i], offset);
+        offset += allData[i].length;
+      }
+      // const allDataFinal = new Uint8ClampedArray(allData.length)
+      // allDataFinal.set(allData)
+      printLogs && console.timeEnd('put allData into allDataFinal Uint8ClampedArray')
+
       // mainSketch.loop();
 
       if (!(fs.existsSync(dir) && fs.lstatSync(dir).isDirectory())) {
@@ -352,38 +381,61 @@ module.exports = {
         let mag = base64Frames.length.toString().length;
         printLogs && console.log('save each frame')
         base64Frames.forEach((frame, i) => {
+          printLogs && console.time('save frame' + i)
           fs.writeFileSync(`${dir}/frames/frame-${pad(i, mag)}.png`, frame.replace(/^data:image\/png;base64,/, ""), 'base64', err => {
             if (err) {
               reject(err);
             }
           });
+          printLogs && console.timeEnd('save frame' + i)
         });
+        printLogs && console.time('create encoder')
         const gif = GIFEncoder();
         let options = { repeat: ext.repeat || 0, delay: ext.delay || Math.floor(1000 / framerate), quality: ext.quality || 10 };
-
+        printLogs && console.timeEnd('create encoder')
         var opts = {
           colors: 256
         };
 
+        printLogs && console.time('sample allDataFinal')
         // get palette that covers all frames of the entire gif to ensure background doesn't flicker
         const q = new RgbQuant(opts);
-        q.sample(allData);
+        q.sample(allDataFinal);
         const palette = q.palette(true);
-
-
         opts.palette = palette
+        printLogs && console.timeEnd('sample allDataFinal')
+
+
         printLogs && console.log(`create gif with ${sFrames.length} frames`)
         for (let i = 0; i < sFrames.length; i++) {
           let imageData = sFrames[i]
-          // let data = imageData.data
-          // printLogs && console.time('reduce-frame-' + i)
+
+          // this is how you would sample the specific frame to get the palette
+          // we are sampling all frames to ensure a stable background without flickering
+
           // const q = new RgbQuant(opts);
-          // const index = q.reduce(data, 2, 'Burkes', true);
+          // q.sample(imageData.data);
+          // const palette = q.palette(true);
+          
+          // this is how you make high quality dithered, quantized gif.
+          // it takes a long time for each frame tho
+
+          // printLogs && console.time('reduce-frame-' + i)
+          // const index = q.reduce(imageData.data, 2, 'Burkes', true);
           // printLogs && console.timeEnd('reduce-frame-' + i)
-          // imageData.data = index
-          // Write a single frame
+
+
+          // Create an indexed array where the index points to the palette color
+          printLogs && console.time('convert imageData to indexed array ' + i)
+          // faster but requires larger set of frames to go into global palette to ensure no flickering bg
+          // const index = applyPalette(imageData.data, palette)
+
+          // slower but does better job even when dither is false
+          const index = q.reduce(imageData.data, 2, false, false);
+          printLogs && console.timeEnd('convert imageData to indexed array ' + i)
+
           printLogs && console.time('write-frame-' + i)
-          gif.writeFrame(imageData.data, mainSketch.width, mainSketch.height, {
+          gif.writeFrame(index, imageData.width, imageData.height, {
             palette,
             delay: options.delay,
             transparent: false,
