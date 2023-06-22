@@ -1,4 +1,4 @@
-const isLinkedLocally = true
+const isLinkedLocally = false
 const jsdom = require(isLinkedLocally ? "./node_modules/jsdom" : "jsdom");
 const fs = require("fs")//require(isLinkedLocally ? "./node_modules/fs" : "fs");
 const path = require("path")//require(isLinkedLocally ? "./node_modules/path" : "path");
@@ -207,11 +207,16 @@ module.exports = {
         w,
         h;
       try {
+        if (path.indexOf(';base64,') > -1) {
+          path = path.replace(/^data:image\/\w+;base64,/, '');
+          path = Buffer.from(path, 'base64');
+        }
         base = await Jimp.read(path);
         w = base.getWidth();
         h = base.getHeight();
         img = new pp.Image(w, h);
       } catch (error) {
+        console.log(`jimp error`, { error })
         if (!cb) reject(error);
         else cb(error);
       }
@@ -323,7 +328,7 @@ module.exports = {
       const targetNumberOfFramesToSample = 25
       const interval = Math.floor(nrOfFrames / targetNumberOfFramesToSample)
       for (let i = 0; i < nrOfFrames; i++) {
-        
+
         // load next frame
         mainSketch.redraw();
 
@@ -416,7 +421,7 @@ module.exports = {
           // const q = new RgbQuant(opts);
           // q.sample(imageData.data);
           // const palette = q.palette(true);
-          
+
           // this is how you make high quality dithered, quantized gif.
           // it takes a long time for each frame tho
 
