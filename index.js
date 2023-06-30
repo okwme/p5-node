@@ -377,7 +377,7 @@ module.exports = {
 
       if (!(fs.existsSync(dir) && fs.lstatSync(dir).isDirectory())) {
         printLogs && console.log('create directory', { dir })
-        fs.mkdirSync(dir);
+        fs.mkdirSync(dir, { recursive: true });
       }
       if (printLogs && !(fs.existsSync(dir + "/frames") && fs.lstatSync(dir + "/frames").isDirectory())) {
         printLogs && console.log('create directory', { dir: dir + "/frames" })
